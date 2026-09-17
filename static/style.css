@@ -799,6 +799,10 @@ body {
   pointer-events: none;
   transition: fill 0.3s ease;
 }
+.gis-node.degraded .gis-node-label {
+  fill: #fde68a;
+  font-weight: 600;
+}
 .gis-node.failed .gis-node-label {
   fill: #fda4af;
   font-weight: 600;

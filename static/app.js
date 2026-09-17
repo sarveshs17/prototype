@@ -29,15 +29,55 @@ const state = {
   }
 };
 
-// Sector Config & Colors
+// Global Status Conventions (🟢 Operational, 🟡 Degraded, 🔴 Failed)
+const STATUS_COLORS = {
+  operational: "#34d399",
+  degraded: "#fbbf24",
+  failed: "#f43f5e"
+};
+
+function getStatusColor(status) {
+  return STATUS_COLORS[status] || STATUS_COLORS.operational;
+}
+
+/**
+ * Single source of truth for node status.
+ * Reads from the current simulation step and returns 'operational' | 'degraded' | 'failed'.
+ */
+function getNodeStatus(nodeId) {
+  if (!state.simulationResult || !state.simulationResult.timeline) {
+    return "operational";
+  }
+  const currentStepData = state.simulationResult.timeline[state.currentStepIndex];
+  if (!currentStepData) {
+    return "operational";
+  }
+
+  // 1. Check cumulative failed nodes list
+  if (currentStepData.cumulative_failed_nodes && currentStepData.cumulative_failed_nodes.includes(nodeId)) {
+    return "failed";
+  }
+
+  // 2. Check detailed node states for degraded or failed flags
+  if (currentStepData.node_states && currentStepData.node_states[nodeId]) {
+    const s = currentStepData.node_states[nodeId].status;
+    if (s === "failed") return "failed";
+    if (s === "degraded") return "degraded";
+    return "operational";
+  }
+
+  return "operational";
+}
+
+// Sector Config & Metadata (Icons, Units, Labels)
 const SECTOR_CONFIG = {
-  power: { name: "Power Substation", icon: "zap", color: "#fbbf24", stroke: "#d97706", unit: "MW", telemetry: "Grid Freq: 49.98 Hz • Temp: 46°C" },
-  water: { name: "Water Pump Station", icon: "droplet", color: "#06b6d4", stroke: "#0891b2", unit: "MLD", telemetry: "Pressure: 5.4 bar • Flow: 2.8 m/s" },
-  road: { name: "Road Corridor", icon: "route", color: "#94a3b8", stroke: "#64748b", unit: "veh/hr", telemetry: "Density: 82% • Avg Speed: 24 km/h" },
-  bridge: { name: "Bridge", icon: "git-merge", color: "#22d3ee", stroke: "#0891b2", unit: "veh/hr", telemetry: "Structural Stress: Normal • Flow: 88%" },
-  hospital: { name: "Hospital", icon: "plus-square", color: "#f43f5e", stroke: "#e11d48", unit: "beds", telemetry: "Backup UPS: Standby • ICU: Active" },
-  telecom: { name: "Telecom Tower", icon: "radio", color: "#a78bfa", stroke: "#7c3aed", unit: "Gbps", telemetry: "RF Power: 42 dBm • BER: 1e-9" },
-  demand: { name: "Demand Hub", icon: "users", color: "#34d399", stroke: "#059669", unit: "MVA", telemetry: "Peak Load Factor: 0.88" }
+  power: { name: "Power Substation", icon: "zap", unit: "MW", telemetry: "Grid Freq: 49.98 Hz • Temp: 46°C" },
+  water: { name: "Water Pump Station", icon: "droplet", unit: "MLD", telemetry: "Pressure: 5.4 bar • Flow: 2.8 m/s" },
+  road: { name: "Road Corridor", icon: "route", unit: "veh/hr", telemetry: "Density: 82% • Avg Speed: 24 km/h" },
+  bridge: { name: "Bridge", icon: "git-merge", unit: "veh/hr", telemetry: "Structural Stress: Normal • Flow: 88%" },
+  hospital: { name: "Hospital", icon: "plus-square", unit: "beds", telemetry: "Backup UPS: Standby • ICU: Active" },
+  telecom: { name: "Telecom Tower", icon: "radio", unit: "Gbps", telemetry: "RF Power: 42 dBm • BER: 1e-9" },
+  demand: { name: "Demand Hub", icon: "users", unit: "MVA", telemetry: "Peak Load Factor: 0.88" }
 };
 
 // ==========================================================================
@@ -235,6 +275,9 @@ function setSimulationStep(stepIndex) {
 
   // Update asset panel
   updateAssetDetailsPanel();
+
+  // Update sidebar counter counts
+  updateSidebarStats();
 }
 
 // ==========================================================================
@@ -277,37 +320,38 @@ function renderMapElements() {
     edgesGroup.appendChild(line);
   });
 
-  // Render Nodes with Multi-Ring Wave Shockwaves
+  // Render Nodes with Unified Status Colors & Shockwaves
   state.networkData.nodes.forEach(node => {
+    const status = getNodeStatus(node.id);
     const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
-    g.setAttribute("class", "gis-node operational");
+    g.setAttribute("class", `gis-node ${status}${node.id === state.selectedNodeId ? ' selected' : ''}`);
     g.setAttribute("id", `node-${node.id}`);
     g.dataset.id = node.id;
     g.dataset.type = node.type || "road";
 
-    // Shockwave Ripple Ring 2 (Outer expanding wave)
+    // Shockwave Ripple Ring 2 (Outer expanding wave for failed nodes)
     const ripple2 = document.createElementNS("http://www.w3.org/2000/svg", "circle");
     ripple2.setAttribute("class", "gis-node-ripple-2");
     ripple2.setAttribute("r", "18");
     g.appendChild(ripple2);
 
-    // Shockwave Ripple Ring 1 (Mid expanding wave)
+    // Shockwave Ripple Ring 1 (Mid expanding wave for failed nodes)
     const ripple1 = document.createElementNS("http://www.w3.org/2000/svg", "circle");
     ripple1.setAttribute("class", "gis-node-ripple-1");
     ripple1.setAttribute("r", "18");
     g.appendChild(ripple1);
 
-    // Primary Pulsing Halo
+    // Primary Pulsing Halo (Green for Operational, Yellow for Degraded, Red for Failed)
     const halo = document.createElementNS("http://www.w3.org/2000/svg", "circle");
     halo.setAttribute("class", "gis-node-halo");
     halo.setAttribute("r", "24");
     g.appendChild(halo);
 
-    // Node Body
+    // Node Body (Filled with Status Color: 🟢 Green, 🟡 Yellow, 🔴 Red)
     const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
     circle.setAttribute("class", "gis-node-circle");
     circle.setAttribute("r", "18");
-    circle.setAttribute("fill", getNodeColor(node.type));
+    circle.setAttribute("fill", getStatusColor(status));
     g.appendChild(circle);
 
     // Category Icon Glyph
@@ -375,39 +419,31 @@ function updateSvgPositions() {
 }
 
 function updateSvgVisualStates() {
-  if (!state.simulationResult) return;
-  const currentStepData = state.simulationResult.timeline[state.currentStepIndex];
-  if (!currentStepData) return;
+  if (!state.networkData) return;
+  const currentStepData = state.simulationResult?.timeline?.[state.currentStepIndex];
 
-  const failedNodes = new Set(currentStepData.cumulative_failed_nodes || []);
-  const failedEdges = new Set(currentStepData.cumulative_failed_edges || []);
+  const failedNodes = new Set(currentStepData?.cumulative_failed_nodes || []);
+  const failedEdges = new Set(currentStepData?.cumulative_failed_edges || []);
 
-  state.networkData.nodes.forEach((node, idx) => {
+  state.networkData.nodes.forEach((node) => {
     const nodeEl = document.getElementById(`node-${node.id}`);
     if (!nodeEl) return;
 
-    // Apply Filter Visibility
-    const typeVisible = state.filters.types.has(node.type);
-    let status = "operational";
-    if (failedNodes.has(node.id)) {
-      status = "failed";
-    } else {
-      const nodeState = currentStepData.node_states[node.id];
-      if (nodeState && nodeState.status === "degraded") {
-        status = "degraded";
-      }
-    }
+    // Determine status from single source of truth
+    const status = getNodeStatus(node.id);
 
+    // Apply Filter Visibility (both Type and Status filters)
+    const typeVisible = state.filters.types.has(node.type);
     const statusVisible = state.filters.statuses.has(status);
     nodeEl.style.display = (typeVisible && statusVisible) ? "block" : "none";
 
-    // Update classes with selection state
-    nodeEl.className.baseVal = `gis-node ${status} ${node.id === state.selectedNodeId ? 'selected' : ''}`;
+    // Update classes: status class determines halo/label styles; selected adds separate cyan outline
+    nodeEl.className.baseVal = `gis-node ${status}${node.id === state.selectedNodeId ? ' selected' : ''}`;
     
-    // Update node body fill color
+    // Update node body fill color strictly according to status (🟢 Green, 🟡 Yellow, 🔴 Red)
     const circle = nodeEl.querySelector(".gis-node-circle");
     if (circle) {
-      circle.setAttribute("fill", status === "failed" ? "#ef4444" : (status === "degraded" ? "#f59e0b" : getNodeColor(node.type)));
+      circle.setAttribute("fill", getStatusColor(status));
     }
   });
 
@@ -425,8 +461,8 @@ function updateSvgVisualStates() {
 }
 
 function getNodeColor(type) {
-  const cfg = SECTOR_CONFIG[type];
-  return cfg ? cfg.color : "#94a3b8";
+  // Retained for backward compatibility if referenced, but all markers use getStatusColor
+  return "#34d399";
 }
 
 function getNodeSymbol(type) {
@@ -523,16 +559,13 @@ function updateAssetDetailsPanel() {
   panel.classList.remove("hidden");
   emptyState?.classList.add("hidden");
 
-  // Determine active status from simulation step
-  let status = "operational";
+  // Determine active status from single source of truth
+  const status = getNodeStatus(node.id);
   let curLoad = node.load;
   let util = Math.round((node.load / node.capacity) * 100);
 
   if (state.simulationResult && state.simulationResult.timeline) {
     const curStepData = state.simulationResult.timeline[state.currentStepIndex];
-    if (curStepData && curStepData.cumulative_failed_nodes.includes(node.id)) {
-      status = "failed";
-    }
     if (curStepData && curStepData.node_states && curStepData.node_states[node.id]) {
       curLoad = curStepData.node_states[node.id].load;
       util = Math.round(curStepData.node_states[node.id].utilization);
@@ -552,14 +585,20 @@ function updateAssetDetailsPanel() {
   utilEl.textContent = `${util}%`;
   utilBar.style.width = `${Math.min(100, util)}%`;
 
-  // Utilization colors
-  utilEl.className = `prop-val ${status === 'failed' || util > 90 ? 'red' : (util > 75 ? 'yellow' : 'green')}`;
-  utilBar.className = `util-bar-fill ${status === 'failed' || util > 90 ? 'red' : (util > 75 ? 'yellow' : 'green')}`;
+  // Utilization colors - strictly match status
+  const statusColorClass = status === 'failed' ? 'red' : (status === 'degraded' ? 'yellow' : 'green');
+  utilEl.className = `prop-val ${statusColorClass}`;
+  utilBar.className = `util-bar-fill ${statusColorClass}`;
 
-  // Status Badge
+  // Status Badge - strictly match status (🟢 Operational, 🟡 Degraded, 🔴 Failed)
   const statusBadge = document.getElementById("assetStatusBadge");
-  statusBadge.textContent = status.charAt(0).toUpperCase() + status.slice(1);
-  statusBadge.className = `asset-status-badge ${status === 'failed' ? 'red' : (status === 'degraded' ? 'yellow' : 'green')}`;
+  const statusLabels = {
+    operational: "Operational",
+    degraded: "Degraded",
+    failed: "Failed"
+  };
+  statusBadge.textContent = statusLabels[status] || "Operational";
+  statusBadge.className = `asset-status-badge ${statusColorClass}`;
 
   // Location
   document.getElementById("assetLocation").textContent = `${(node.lat || 12.98).toFixed(4)}° N, ${(node.lng || 80.24).toFixed(4)}° E`;
@@ -570,7 +609,7 @@ function updateAssetDetailsPanel() {
     bannerImg.src = node.image_url;
   }
 
-  // Live Telemetry Updates
+  // Live Telemetry Updates - strictly match status
   const telState = document.getElementById("telSensorState");
   const telRedundancy = document.getElementById("telRedundancy");
   const telHealth = document.getElementById("telHealthIndex");
@@ -583,8 +622,8 @@ function updateAssetDetailsPanel() {
     telHealth.className = "t-val red";
     telRisk.textContent = "Catastrophic Breach";
     telRisk.className = "t-val red";
-  } else if (status === "degraded" || util > 85) {
-    telState.textContent = "Thermal Warning (48°C)";
+  } else if (status === "degraded") {
+    telState.textContent = "Auxiliary Backup Active";
     telState.className = "t-val yellow";
     telHealth.textContent = `${Math.max(20, 100 - util)} / 100`;
     telHealth.className = "t-val yellow";
@@ -599,7 +638,7 @@ function updateAssetDetailsPanel() {
     telRisk.className = "t-val green";
   }
 
-  // Connected Assets List
+  // Connected Assets List - show accurate status dot for each neighbor
   const connectedList = document.getElementById("connectedAssetsList");
   connectedList.innerHTML = "";
   const neighbors = state.networkData.edges.filter(e => e.source === node.id || e.target === node.id);
@@ -610,11 +649,14 @@ function updateAssetDetailsPanel() {
     const targetNode = state.networkData.nodes.find(n => n.id === targetId);
     if (!targetNode) return;
 
+    const targetStatus = getNodeStatus(targetId);
+    const targetStatusClass = targetStatus === 'failed' ? 'red' : (targetStatus === 'degraded' ? 'yellow' : 'green');
+
     const item = document.createElement("div");
     item.className = "connected-item";
     item.innerHTML = `
       <div class="connected-left">
-        <span class="status-dot green"></span>
+        <span class="status-dot ${targetStatusClass}"></span>
         <span>${targetNode.label}</span>
       </div>
       <span class="edge-type-tag">${edge.type || 'Physical'}</span>
@@ -673,16 +715,20 @@ function updateSidebarStats() {
   document.getElementById("totalAssetsCount").textContent = state.networkData.nodes.length;
   document.getElementById("totalConnectionsCount").textContent = state.networkData.edges.length;
 
-  if (state.simulationResult) {
-    const curStep = state.simulationResult.timeline[state.currentStepIndex];
-    const failedCount = (curStep.cumulative_failed_nodes || []).length;
-    const degradedCount = Object.values(curStep.node_states || {}).filter(s => s.status === "degraded").length;
-    const operationalCount = state.networkData.nodes.length - failedCount - degradedCount;
+  let failedCount = 0;
+  let degradedCount = 0;
+  let operationalCount = 0;
 
-    document.getElementById("failedCount").textContent = failedCount;
-    document.getElementById("degradedCount").textContent = degradedCount;
-    document.getElementById("operationalCount").textContent = operationalCount;
-  }
+  state.networkData.nodes.forEach(node => {
+    const status = getNodeStatus(node.id);
+    if (status === "failed") failedCount++;
+    else if (status === "degraded") degradedCount++;
+    else operationalCount++;
+  });
+
+  document.getElementById("failedCount").textContent = failedCount;
+  document.getElementById("degradedCount").textContent = degradedCount;
+  document.getElementById("operationalCount").textContent = operationalCount;
 }
 
 // ==========================================================================
@@ -804,10 +850,13 @@ function renderManagementTable() {
   tbody.innerHTML = "";
 
   state.networkData.nodes.forEach(node => {
+    const status = getNodeStatus(node.id);
+    const statusBadgeClass = status === 'failed' ? 'red' : (status === 'degraded' ? 'yellow' : 'green');
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td><code>${node.id}</code></td>
       <td><strong>${node.label}</strong></td>
+      <td><span class="asset-status-badge ${statusBadgeClass}" style="display: inline-block;">${status.charAt(0).toUpperCase() + status.slice(1)}</span></td>
       <td><span class="badge" style="background: rgba(59,130,246,0.15); color: #93c5fd">${node.type}</span></td>
       <td>${node.capacity.toLocaleString()} ${node.unit || ''}</td>
       <td>${node.load.toLocaleString()} ${node.unit || ''}</td>
@@ -1131,11 +1180,13 @@ function renderQuickSearchResults(query) {
   }
 
   matches.forEach(node => {
+    const status = getNodeStatus(node.id);
+    const statusDotClass = status === 'failed' ? 'red' : (status === 'degraded' ? 'yellow' : 'green');
     const item = document.createElement("div");
     item.className = "search-result-item";
     item.innerHTML = `
       <div class="search-res-info">
-        <span class="search-res-title">${node.label}</span>
+        <span class="search-res-title"><span class="status-dot ${statusDotClass}" style="margin-right: 6px;"></span>${node.label}</span>
         <span class="search-res-sub">${node.sub || node.type} • ${node.capacity} ${node.unit || ''}</span>
       </div>
       <span class="badge" style="background: rgba(59,130,246,0.15); color: #93c5fd">${node.external_id || node.id}</span>
