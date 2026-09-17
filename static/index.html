@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Resilience — Infrastructure Resilience Simulator</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Leaflet CSS for accurate GIS mapping with Satellite / Dark vector tiles -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <!-- Lucide icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Top Global Header -->
+  <header class="top-navbar">
+    <div class="brand-group">
+      <div class="brand-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+          <polyline points="2 17 12 22 22 17"></polyline>
+          <polyline points="2 12 12 17 22 12"></polyline>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <span class="brand-title">Resilience</span>
+        <span class="brand-subtitle">Infrastructure for a stronger tomorrow</span>
+      </div>
+    </div>
+
+    <!-- Center Navigation Tabs -->
+    <nav class="nav-tabs">
+      <button class="nav-tab active" data-tab="network-analysis">Network Analysis</button>
+      <button class="nav-tab" data-tab="criticality">Criticality</button>
+      <button class="nav-tab" data-tab="network-management">Network Management</button>
+    </nav>
+
+    <!-- Right Header Controls -->
+    <div class="header-right">
+      <div class="network-select-wrap">
+        <select id="globalNetworkSelect" class="styled-select">
+          <option value="chennai_demo" selected>Chennai Demo Network</option>
+          <option value="bengaluru_metro">Bengaluru Tech Grid</option>
+          <option value="mumbai_island">Mumbai Island City Grid</option>
+        </select>
+        <i data-lucide="chevron-down" class="select-arrow"></i>
+      </div>
+
+      <button id="settingsBtn" class="icon-btn" title="Simulation Settings">
+        <i data-lucide="settings"></i>
+      </button>
+      <button id="helpBtn" class="icon-btn" title="Help & Documentation">
+        <i data-lucide="help-circle"></i>
+      </button>
+      <div class="user-avatar" title="User Profile: Sarvesh S">
+        <span>SS</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Viewport Container -->
+  <main class="app-main">
+
+    <!-- ================= TAB 1: NETWORK ANALYSIS (Main Reference View) ================= -->
+    <section id="view-network-analysis" class="tab-view active">
+      <div class="dashboard-grid">
+        
+        <!-- Left Sidebar: Networks, Layers & Filters -->
+        <aside class="left-sidebar">
+          
+          <!-- Networks Section -->
+          <div class="sidebar-section">
+            <h3 class="section-title">Networks</h3>
+            <div class="network-select-wrap full-width">
+              <select id="sidebarNetworkSelect" class="styled-select">
+                <option value="chennai_demo" selected>Chennai Demo Network</option>
+                <option value="bengaluru_metro">Bengaluru Tech Grid</option>
+                <option value="mumbai_island">Mumbai Island City Grid</option>
+              </select>
+              <i data-lucide="chevron-down" class="select-arrow"></i>
+            </div>
+
+            <div class="network-quick-stats">
+              <div class="stat-pill">
+                <span class="stat-num" id="totalAssetsCount">124</span>
+                <span class="stat-label">Assets</span>
+              </div>
+              <div class="stat-pill">
+                <span class="stat-num" id="totalConnectionsCount">182</span>
+                <span class="stat-label">Connections</span>
+              </div>
+            </div>
+
+            <div class="status-summary-row">
+              <span class="status-item">
+                <span class="status-dot green"></span>
+                <span id="operationalCount">112</span> Operational
+              </span>
+              <span class="status-item">
+                <span class="status-dot yellow"></span>
+                <span id="degradedCount">8</span> Degraded
+              </span>
+              <span class="status-item">
+                <span class="status-dot red"></span>
+                <span id="failedCount">4</span> Failed
+              </span>
+            </div>
+          </div>
+
+          <div class="sidebar-divider"></div>
+
+          <!-- Layers & Filters -->
+          <div class="sidebar-section scrollable-filters">
+            <h3 class="section-title">Layers & Filters</h3>
+            
+            <div class="filter-group">
+              <h4 class="filter-heading">Infrastructure Types</h4>
+              <label class="filter-checkbox-item">
+                <input type="checkbox" data-filter-type="type" value="road" checked>
+                <span class="custom-chk"></span>
+                <i data-lucide="route" class="filter-icon"></i>
+                <span class="filter-text">Roads</span>
+              </label>
+              <label class="filter-checkbox-item">
+                <input type="checkbox" data-filter-type="type" value="bridge" checked>
+                <span class="custom-chk"></span>
+                <i data-lucide="git-merge" class="filter-icon"></i>
+                <span class="filter-text">Bridges</span>
+              </label>
+              <label class="filter-checkbox-item">
+                <input type="checkbox" data-filter-type="type" value="hospital" checked>
+                <span class="custom-chk"></span>
+                <i data-lucide="plus-square" class="filter-icon"></i>
+                <span class="filter-text">Hospitals</span>
+              </label>
+              <label class="filter-checkbox-item">
+                <input type="checkbox" data-filter-type="type" value="power" checked>
+                <span class="custom-chk"></span>
+                <i data-lucide="zap" class="filter-icon"></i>
+                <span class="filter-text">Power (Substations)</span>
+              </label>
+              <label class="filter-checkbox-item">
+                <input type="checkbox" data-filter-type="type" value="water" checked>
+                <span class="custom-chk"></span>
+                <i data-lucide="droplet" class="filter-icon"></i>
+                <span class="filter-text">Water (Pumps)</span>
+              </label>
+              <label class="filter-checkbox-item">
+                <input type="checkbox" data-filter-type="type" value="telecom" checked>
+                <span class="custom-chk"></span>
+                <i data-lucide="radio" class="filter-icon"></i>
+                <span class="filter-text">Telecom Towers</span>
+              </label>
+            </div>
+
+            <div class="filter-group">
+              <h4 class="filter-heading">Asset Status</h4>
+              <label class="filter-checkbox-item">
+                <input type="checkbox" data-filter-status="operational" checked>
+                <span class="custom-chk"></span>
+                <span class="status-dot green"></span>
+                <span class="filter-text">Operational</span>
+              </label>
+              <label class="filter-checkbox-item">
+                <input type="checkbox" data-filter-status="degraded" checked>
+                <span class="custom-chk"></span>
+                <span class="status-dot yellow"></span>
+                <span class="filter-text">Degraded</span>
+              </label>
+              <label class="filter-checkbox-item">
+                <input type="checkbox" data-filter-status="failed" checked>
+                <span class="custom-chk"></span>
+                <span class="status-dot red"></span>
+                <span class="filter-text">Failed</span>
+              </label>
+            </div>
+
+            <div class="filter-group">
+              <h4 class="filter-heading">Edge Types</h4>
+              <label class="filter-checkbox-item">
+                <input type="checkbox" data-filter-edge="physical" checked>
+                <span class="custom-chk"></span>
+                <span class="edge-sample physical">——</span>
+                <span class="filter-text">Physical</span>
+              </label>
+              <label class="filter-checkbox-item">
+                <input type="checkbox" data-filter-edge="dependency" checked>
+                <span class="custom-chk"></span>
+                <span class="edge-sample dependency">- - -</span>
+                <span class="filter-text">Dependency</span>
+              </label>
+              <label class="filter-checkbox-item">
+                <input type="checkbox" data-filter-edge="flow" checked>
+                <span class="custom-chk"></span>
+                <span class="edge-sample flow">····</span>
+                <span class="filter-text">Flow</span>
+              </label>
+              <label class="filter-checkbox-item">
+                <input type="checkbox" data-filter-edge="geographic" checked>
+                <span class="custom-chk"></span>
+                <span class="edge-sample geographic">– · –</span>
+                <span class="filter-text">Geographic</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Bottom Search Box -->
+          <div class="sidebar-search-box">
+            <div class="search-input-wrap">
+              <i data-lucide="search" class="search-icon"></i>
+              <input type="text" id="assetSearchInput" placeholder="Search assets..." autocomplete="off">
+              <span class="kbd-badge">Ctrl K</span>
+            </div>
+          </div>
+        </aside>
+
+        <!-- Center GIS Map Area & Bottom Timeline -->
+        <section class="center-content">
+          
+          <div class="map-viewport-container">
+            <!-- Map Mode Switcher -->
+            <div class="map-controls-top-left">
+              <div class="map-layer-toggle">
+                <button class="layer-btn" id="mapModeVector">Map</button>
+                <button class="layer-btn active" id="mapModeSatellite">Satellite</button>
+              </div>
+            </div>
+
+            <!-- Floating Map Navigation Tools -->
+            <div class="map-tools-right">
+              <button class="map-tool-btn" id="recenterMapBtn" title="Recenter Network">
+                <i data-lucide="crosshair"></i>
+              </button>
+              <button class="map-tool-btn" id="zoomInBtn" title="Zoom In">
+                <i data-lucide="plus"></i>
+              </button>
+              <button class="map-tool-btn" id="zoomOutBtn" title="Zoom Out">
+                <i data-lucide="minus"></i>
+              </button>
+            </div>
+
+            <!-- Scale Indicator -->
+            <div class="map-scale-indicator">
+              <div class="scale-bar"></div>
+              <span>1 km</span>
+            </div>
+
+            <!-- Interactive Map Div (Leaflet / SVG) -->
+            <div id="gisMap"></div>
+          </div>
+
+          <!-- Bottom Simulation Timeline & Metrics Card Panel -->
+          <div class="bottom-panel">
+            
+            <!-- Timeline Header & Controls -->
+            <div class="timeline-header">
+              <div class="timeline-title-wrap">
+                <span class="timeline-title">Simulation Timeline</span>
+                <span class="step-indicator-text" id="stepCounterText">Step 0 / 0</span>
+              </div>
+              <div class="timeline-right-controls">
+                <div class="speed-select-wrap">
+                  <span class="speed-label">Playback Speed</span>
+                  <select id="playbackSpeedSelect" class="styled-select small">
+                    <option value="0.5">0.5x</option>
+                    <option value="1" selected>1x</option>
+                    <option value="2">2x</option>
+                    <option value="5">5x</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- Timeline Scrubber & Step Bar -->
+            <div class="timeline-scrubber-row">
+              <div class="playback-buttons">
+                <button id="stepBackBtn" class="playback-btn" title="Previous Step">
+                  <i data-lucide="skip-back"></i>
+                </button>
+                <button id="playPauseBtn" class="playback-btn play-main" title="Play Cascade">
+                  <i data-lucide="play" id="playIcon"></i>
+                </button>
+                <button id="stepForwardBtn" class="playback-btn" title="Next Step">
+                  <i data-lucide="skip-forward"></i>
+                </button>
+                <button id="resetSimBtn" class="playback-btn" title="Reset Simulation">
+                  <i data-lucide="rotate-ccw"></i>
+                </button>
+              </div>
+
+              <!-- Interactive Timeline Track -->
+              <div class="timeline-track-container" id="timelineTrackContainer">
+                <div class="timeline-track-line">
+                  <div class="timeline-progress-fill" id="timelineProgressFill"></div>
+                </div>
+                <div class="timeline-nodes-track" id="timelineNodesTrack">
+                  <!-- Injected via JS dynamically based on cascade steps -->
+                </div>
+              </div>
+            </div>
+
+            <!-- Simulation Metrics Summary -->
+            <div class="metrics-section">
+              <h4 class="metrics-heading">Simulation Metrics</h4>
+              <div class="metrics-grid">
+                
+                <!-- Service Loss -->
+                <div class="metric-card">
+                  <span class="metric-label">Service Loss</span>
+                  <div class="metric-body">
+                    <div class="radial-progress-ring red" id="serviceLossRing">
+                      <svg viewBox="0 0 36 36">
+                        <path class="ring-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        <path class="ring-fill" id="serviceLossRingFill" stroke-dasharray="0, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                      </svg>
+                    </div>
+                    <span class="metric-val big red" id="serviceLossVal">0.0%</span>
+                  </div>
+                </div>
+
+                <!-- Affected Demand -->
+                <div class="metric-card">
+                  <span class="metric-label">Affected Demand</span>
+                  <div class="metric-body flex-row">
+                    <i data-lucide="users" class="metric-icon blue"></i>
+                    <span class="metric-val big" id="affectedDemandVal">0</span>
+                  </div>
+                </div>
+
+                <!-- Failed Assets -->
+                <div class="metric-card">
+                  <span class="metric-label">Failed Assets</span>
+                  <div class="metric-body flex-row">
+                    <i data-lucide="alert-triangle" class="metric-icon red"></i>
+                    <div class="metric-stack">
+                      <span class="metric-val big" id="failedAssetsTotalVal">0</span>
+                      <span class="metric-sub" id="failedAssetsBreakdownVal">(0 nodes, 0 edges)</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Network Service Ratio -->
+                <div class="metric-card">
+                  <span class="metric-label">Network Service Ratio</span>
+                  <div class="metric-body">
+                    <div class="radial-progress-ring green" id="serviceRatioRing">
+                      <svg viewBox="0 0 36 36">
+                        <path class="ring-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        <path class="ring-fill" id="serviceRatioRingFill" stroke-dasharray="100, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                      </svg>
+                    </div>
+                    <span class="metric-val big green" id="serviceRatioVal">100.0%</span>
+                  </div>
+                </div>
+
+                <!-- Cascade Duration -->
+                <div class="metric-card">
+                  <span class="metric-label">Cascade Duration</span>
+                  <div class="metric-body flex-row">
+                    <i data-lucide="clock" class="metric-icon muted"></i>
+                    <span class="metric-val big" id="cascadeDurationVal">0 steps</span>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- Right Sidebar: Asset Details & Step Details -->
+        <aside class="right-sidebar">
+          
+          <!-- Asset Details Card -->
+          <div class="panel-card asset-details-panel">
+            <div class="panel-header">
+              <h3 class="panel-title">Asset Details</h3>
+              <button class="close-btn" id="closeAssetPanelBtn" title="Close Panel">
+                <i data-lucide="x"></i>
+              </button>
+            </div>
+
+            <div id="assetDetailsContent" class="asset-details-body">
+              <!-- Asset Banner Image -->
+              <div class="asset-image-wrap">
+                <img id="assetBannerImg" src="https://images.unsplash.com/photo-1545459720-aac8509eb02c?auto=format&fit=crop&w=600&q=80" alt="Asset photo" class="asset-banner">
+                <div class="asset-image-overlay">
+                  <span class="asset-type-chip" id="assetTypeChip">Bridge</span>
+                </div>
+              </div>
+
+              <!-- Asset Header -->
+              <div class="asset-title-block">
+                <div class="asset-title-row">
+                  <i data-lucide="git-merge" id="assetTypeIcon" class="asset-type-badge-icon"></i>
+                  <h2 class="asset-name" id="assetName">Thiruvanmiyur Bridge</h2>
+                  <span class="asset-status-badge red" id="assetStatusBadge">Failed</span>
+                </div>
+                <div class="asset-subtitle" id="assetSubcategory">Bridge • Critical Arterial Link</div>
+              </div>
+
+              <!-- Key Properties -->
+              <div class="asset-props-table">
+                <div class="prop-row">
+                  <span class="prop-key">External ID</span>
+                  <span class="prop-val" id="assetExternalId">BR-014</span>
+                </div>
+                <div class="prop-row">
+                  <span class="prop-key">Capacity</span>
+                  <span class="prop-val" id="assetCapacity">4,000 vehicles/hr</span>
+                </div>
+                <div class="prop-row">
+                  <span class="prop-key">Current Load</span>
+                  <span class="prop-val" id="assetCurrentLoad">3,650 vehicles/hr</span>
+                </div>
+                <div class="prop-row">
+                  <span class="prop-key">Utilization</span>
+                  <div class="util-val-wrap">
+                    <span class="prop-val red" id="assetUtilization">91.2%</span>
+                    <div class="util-bar-track">
+                      <div class="util-bar-fill red" id="assetUtilBar" style="width: 91.2%"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="prop-row">
+                  <span class="prop-key">Location</span>
+                  <span class="prop-val" id="assetLocation">12.9901° N, 80.2536° E</span>
+                </div>
+              </div>
+
+              <!-- Telemetry & Sensor Diagnostics -->
+              <div class="telemetry-section">
+                <div class="telemetry-header">
+                  <span class="telemetry-title">Live Sensor Telemetry</span>
+                  <span class="telemetry-live-dot"><span class="pulse-dot"></span> LIVE</span>
+                </div>
+                <div class="telemetry-grid" id="assetTelemetryGrid">
+                  <div class="telemetry-chip">
+                    <span class="t-key">Sensor State</span>
+                    <span class="t-val green" id="telSensorState">Online (100ms)</span>
+                  </div>
+                  <div class="telemetry-chip">
+                    <span class="t-key">Redundancy</span>
+                    <span class="t-val" id="telRedundancy">N-1 Protected</span>
+                  </div>
+                  <div class="telemetry-chip">
+                    <span class="t-key">Health Index</span>
+                    <span class="t-val green" id="telHealthIndex">92 / 100</span>
+                  </div>
+                  <div class="telemetry-chip">
+                    <span class="t-key">Cascade Risk</span>
+                    <span class="t-val red" id="telCascadeRisk">High Vulnerability</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Connected Assets -->
+              <div class="connected-assets-section">
+                <div class="connected-header">
+                  <span class="connected-title">Connected Assets (<span id="connectedCount">4</span>)</span>
+                  <button class="link-btn" id="viewAllConnectionsBtn">Focus View</button>
+                </div>
+                <div class="connected-list" id="connectedAssetsList">
+                  <!-- Injected via JS -->
+                </div>
+              </div>
+
+              <!-- Action Buttons -->
+              <div class="asset-actions-row">
+                <button class="primary-btn full-width" id="simulateFailureBtn">
+                  <i data-lucide="zap"></i>
+                  <span id="simulateBtnText">Simulate Failure</span>
+                </button>
+                <div class="asset-secondary-actions">
+                  <button class="secondary-btn flex-1" id="injectStressBtn" title="Inject 50% Load Surge">
+                    <i data-lucide="activity"></i>
+                    <span>Load Spike</span>
+                  </button>
+                  <button class="secondary-btn flex-1" id="restoreAssetBtn" title="Restore Nominal State">
+                    <i data-lucide="rotate-ccw"></i>
+                    <span>Restore</span>
+                  </button>
+                  <button class="secondary-btn" id="viewInMapsBtn" title="Open in Google Maps">
+                    <i data-lucide="external-link"></i>
+                  </button>
+                </div>
+              </div>
+
+            </div>
+            
+            <div id="noAssetSelectedState" class="empty-placeholder hidden">
+              <i data-lucide="map-pin" class="empty-icon"></i>
+              <p>Select any asset on the map to inspect telemetry, capacities, and simulate targeted failure.</p>
+            </div>
+          </div>
+
+          <!-- Step Details Card -->
+          <div class="panel-card step-details-panel">
+            <div class="panel-header">
+              <h3 class="panel-title" id="stepDetailsTitle">Step Details</h3>
+              <span class="badge red-soft" id="stepFailuresBadge">0 failures</span>
+            </div>
+
+            <div class="step-details-body">
+              <div class="step-subheading">Newly Failed Assets</div>
+              <div class="newly-failed-list" id="newlyFailedList">
+                <div class="empty-step-msg">No assets failed in this step.</div>
+              </div>
+
+              <div class="step-subheading">Cumulative Impact</div>
+              <div class="cumulative-impact-table">
+                <div class="impact-row">
+                  <span class="impact-key">Failed Assets</span>
+                  <span class="impact-val" id="stepCumFailedAssets">0</span>
+                </div>
+                <div class="impact-row">
+                  <span class="impact-key">Affected Demand</span>
+                  <span class="impact-val" id="stepCumDemand">0</span>
+                </div>
+                <div class="impact-row">
+                  <span class="impact-key">Service Loss</span>
+                  <span class="impact-val" id="stepCumServiceLoss">0.0%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </aside>
+
+      </div>
+    </section>
+
+    <!-- ================= TAB 2: CRITICALITY ================= -->
+    <section id="view-criticality" class="tab-view">
+      <div class="full-tab-container">
+        <div class="tab-header-banner">
+          <div>
+            <h2>Single Point of Failure Criticality Analysis</h2>
+            <p>Precomputed Monte Carlo & exhaustive graph cascade simulations ranking which asset failure triggers the largest systemic collapse.</p>
+          </div>
+          <div class="banner-actions">
+            <button class="primary-btn" id="recomputeCriticalityBtn">
+              <i data-lucide="refresh-cw"></i> Recompute All
+            </button>
+            <button class="secondary-btn" id="exportCriticalityCsvBtn">
+              <i data-lucide="download"></i> Export CSV
+            </button>
+          </div>
+        </div>
+
+        <div class="criticality-content-grid">
+          <div class="panel-card table-panel">
+            <div class="table-toolbar">
+              <div class="search-input-wrap">
+                <i data-lucide="search" class="search-icon"></i>
+                <input type="text" id="criticalityTableSearch" placeholder="Filter by asset name, ID, or sector...">
+              </div>
+              <div class="table-stats-pill" id="criticalCountBadge">15 Assets Analyzed</div>
+            </div>
+
+            <div class="responsive-table-wrap">
+              <table class="data-table" id="criticalityRankTable">
+                <thead>
+                  <tr>
+                    <th>Rank</th>
+                    <th>Asset ID</th>
+                    <th>Asset Name</th>
+                    <th>Infrastructure Type</th>
+                    <th>Capacity Lost</th>
+                    <th>Relative Severity</th>
+                    <th>Cascade Size</th>
+                    <th>Affected Demand</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="criticalityTableBody">
+                  <!-- Populated via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= TAB 4: NETWORK MANAGEMENT ================= -->
+    <section id="view-network-management" class="tab-view">
+      <div class="full-tab-container">
+        <div class="tab-header-banner">
+          <div>
+            <h2>Network Topology Management</h2>
+            <p>Create, inspect, tune capacities, add cross-sector dependency links, and export network graphs.</p>
+          </div>
+          <div class="banner-actions">
+            <button class="primary-btn" id="addNewAssetModalBtn">
+              <i data-lucide="plus"></i> Add New Asset
+            </button>
+            <button class="secondary-btn" id="addNewConnectionModalBtn">
+              <i data-lucide="link"></i> Add Connection
+            </button>
+            <button class="secondary-btn" id="exportNetworkJsonBtn">
+              <i data-lucide="file-json"></i> Export GeoJSON / Graph
+            </button>
+          </div>
+        </div>
+
+        <div class="management-grid">
+          <div class="panel-card">
+            <h3 class="panel-title">Network Inventory</h3>
+            <div class="responsive-table-wrap">
+              <table class="data-table" id="managementNodesTable">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Sector</th>
+                    <th>Capacity</th>
+                    <th>Initial Load</th>
+                    <th>Coordinates</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="managementNodesBody">
+                  <!-- Populated via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ================= MODALS ================= -->
+
+  <!-- Add/Edit Asset Modal -->
+  <div class="modal-overlay" id="assetModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title" id="assetModalTitle">Add New Infrastructure Asset</h3>
+        <button class="close-btn" id="closeAssetModalBtn"><i data-lucide="x"></i></button>
+      </div>
+      <form id="assetForm" class="modal-form">
+        <div class="form-group">
+          <label>Asset ID (Unique identifier)</label>
+          <input type="text" id="formAssetId" required placeholder="e.g. egmore_substation">
+        </div>
+        <div class="form-group">
+          <label>Asset Name</label>
+          <input type="text" id="formAssetName" required placeholder="e.g. Egmore Master Substation">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Infrastructure Sector</label>
+            <select id="formAssetType" class="styled-select">
+              <option value="power">Power Substation</option>
+              <option value="water">Water Pump Station</option>
+              <option value="road">Road Corridor / Junction</option>
+              <option value="bridge">Bridge / Flyover</option>
+              <option value="hospital">Hospital Complex</option>
+              <option value="telecom">Telecom Tower</option>
+              <option value="demand">Demand Zone</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>External Code</label>
+            <input type="text" id="formAssetExternalId" placeholder="e.g. PS-012">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Capacity</label>
+            <input type="number" id="formAssetCapacity" required value="200">
+          </div>
+          <div class="form-group">
+            <label>Initial Load</label>
+            <input type="number" id="formAssetLoad" required value="140">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Latitude</label>
+            <input type="number" step="0.0001" id="formAssetLat" required value="12.9800">
+          </div>
+          <div class="form-group">
+            <label>Longitude</label>
+            <input type="number" step="0.0001" id="formAssetLng" required value="80.2400">
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="secondary-btn" id="cancelAssetModalBtn">Cancel</button>
+          <button type="submit" class="primary-btn">Save Asset</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Connection Modal -->
+  <div class="modal-overlay" id="edgeModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">Add Infrastructure Link</h3>
+        <button class="close-btn" id="closeEdgeModalBtn"><i data-lucide="x"></i></button>
+      </div>
+      <form id="edgeForm" class="modal-form">
+        <div class="form-group">
+          <label>Source Asset</label>
+          <select id="formEdgeSource" class="styled-select"></select>
+        </div>
+        <div class="form-group">
+          <label>Target Asset</label>
+          <select id="formEdgeTarget" class="styled-select"></select>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Connection Dependency Type</label>
+            <select id="formEdgeType" class="styled-select">
+              <option value="physical">Physical (Solid link)</option>
+              <option value="dependency">Dependency (Dashed power/flow)</option>
+              <option value="flow">Flow (Dotted transit/service)</option>
+              <option value="geographic">Geographic (Colocated proximity)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Coupling Weight (0.1 - 2.0)</label>
+            <input type="number" step="0.1" id="formEdgeWeight" value="1.0">
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="secondary-btn" id="cancelEdgeModalBtn">Cancel</button>
+          <button type="submit" class="primary-btn">Create Connection</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">Simulation Physics Parameters</h3>
+        <button class="close-btn" id="closeSettingsModalBtn"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-form">
+        <div class="form-group">
+          <label>Load Damping Factor (<span id="dampingValDisplay">0.95</span>)</label>
+          <input type="range" id="settingDamping" min="0.5" max="1.0" step="0.05" value="0.95" class="slider-input">
+          <p class="field-hint">Fraction of shed load retained across propagation hops.</p>
+        </div>
+        <div class="form-group">
+          <label>Overload Failure Threshold Multiplier (<span id="thresholdValDisplay">1.0x</span>)</label>
+          <input type="range" id="settingThreshold" min="0.8" max="1.5" step="0.05" value="1.0" class="slider-input">
+          <p class="field-hint">Multiplier against node capacity before catastrophic trip.</p>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="primary-btn" id="saveSettingsBtn">Apply Parameters</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Global Quick Search (Ctrl+K) Modal -->
+  <div class="modal-overlay" id="searchModal">
+    <div class="search-modal-card">
+      <div class="search-modal-header">
+        <i data-lucide="search" class="search-icon"></i>
+        <input type="text" id="quickSearchInput" placeholder="Quick find assets, bridges, substations, hospitals..." autofocus>
+        <span class="esc-badge">ESC</span>
+      </div>
+      <div class="search-results-list" id="quickSearchResultsList">
+        <!-- Results injected here -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Hub -->
+  <div class="toast-hub" id="toastHub"></div>
+
+  <!-- Interactive Particle Background Canvas Script -->
+  <script src="particles.js"></script>
+  <!-- Core App JS -->
+  <script src="app.js"></script>
+  <script>
+    // Initialize Lucide icons on load
+    document.addEventListener("DOMContentLoaded", () => {
+      if (window.lucide) lucide.createIcons();
+    });
+  </script>
+</body>
+</html>
+
